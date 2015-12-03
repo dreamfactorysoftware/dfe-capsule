@@ -1,0 +1,16 @@
+/storage/
+/bootstrap/cache/
+.env.*.php
+.env.php
+.env
+.env.local
+/vendor/
+/build/
+/tests/storage/
+/_ide_*.php
+composer.lock
+# phpstorm
+*.iml
+.idea/workspace.xml
+.idea/tasks.xml
+atlassian-ide-plugin.xml
