@@ -11,5 +11,5 @@ class CapsuleDefaults extends FactoryEnum
     /**
      * @type string The default capsule path
      */
-    const DEFAULT_BASE_PATH = '/data/capsules';
+    const DEFAULT_ROOT_PATH = '/data/capsules';
 }
