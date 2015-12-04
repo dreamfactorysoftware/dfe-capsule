@@ -77,9 +77,14 @@ class InstanceCapsule
      */
     public function down($keep = false)
     {
-        $_path = Disk::path([$this->capsuleRootPath, $this->id], true);
+        //  A keeper or no id? No way!
+        if ($keep || empty($this->id)) {
+            return;
+        }
 
-        if (!$keep && !Disk::deleteTree($_path)) {
+        $_path = $this->capsulePath ?: Disk::path([$this->capsuleRootPath, $this->id], true);
+
+        if (!Disk::deleteTree($_path)) {
             throw new \RuntimeException('Unable to remove capsule path "' . $_path . '".');
         }
     }
@@ -91,26 +96,35 @@ class InstanceCapsule
      */
     protected function encapsulate()
     {
-        $_path = Disk::path([$this->capsuleRootPath, $this->id], true);
+        $_capsulePath = Disk::path([$this->capsuleRootPath, $this->id], true);
+        $_targetPath = config('capsule.instance.install-path', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH);
         $_links = config('capsule.instance.symlinks', []);
 
         //  Create symlinks
         foreach ($_links as $_link) {
-            $_linkTarget = Disk::path([$_path, $_link]);
+            $_linkTarget = Disk::path([$_targetPath, $_link]);
 
-            if (false === symlink($_linkTarget, $_link)) {
+            if (false === symlink($_linkTarget, Disk::path([$_capsulePath, $_link]))) {
                 $this->error('Error symlinking target "' . $_linkTarget . '"');
+
+                try {
+                    $this->down();
+                } catch (\Exception $_ex) {
+                    $this->error('Error removing capsule remnants.');
+                }
 
                 return false;
             }
         }
 
-        $_path .= DIRECTORY_SEPARATOR;
+        $_capsulePath .= DIRECTORY_SEPARATOR;
 
         //  Create an env
-        if (!file_exists($_path . '.env')) {
-            file_put_contents($_path . '.env', file_get_contents($_path . '.env-dist'));
+        if (!file_exists($_capsulePath . '.env')) {
+            file_put_contents($_capsulePath . '.env', file_get_contents($_targetPath . '.env'));
         }
+
+        $this->capsulePath = $_capsulePath;
 
         return true;
     }

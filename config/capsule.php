@@ -9,9 +9,12 @@ use DreamFactory\Library\Utility\Disk;
 return [
     /** The root path to all capsules */
     'root-path' => env('DFE_CAPSULE_ROOT_PATH', CapsuleDefaults::DEFAULT_ROOT_PATH),
-    /** Static directories which can be symlinked */
+    /** Instance settings */
     'instance'  => [
-        'symlinks' => [
+        /** The "instance" installation path on the cluster */
+        'install-path' => env('DFE_INSTANCE_INSTALL_PATH', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH),
+        /** Static directories which can be symlinked */
+        'symlinks'     => [
             'app',
             'bootstrap',
             'config',
