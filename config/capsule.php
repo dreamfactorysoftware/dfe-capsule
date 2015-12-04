@@ -4,7 +4,6 @@
 //******************************************************************************
 
 use DreamFactory\Enterprise\Instance\Enums\CapsuleDefaults;
-use DreamFactory\Library\Utility\Disk;
 
 return [
     /** The root path to all capsules */
@@ -13,7 +12,9 @@ return [
     'instance'  => [
         /** The "instance" installation path on the cluster */
         'install-path' => env('DFE_INSTANCE_INSTALL_PATH', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH),
-        /** Static directories which can be symlinked */
+        /** The "storage-path" link name */
+        'storage-path' => 'storage',
+        /** Directories/files which can be symlinked */
         'symlinks'     => [
             'app',
             'bootstrap',
@@ -21,18 +22,8 @@ return [
             'database',
             'public',
             'resources',
+            'storage',
             'vendor',
-        ],
-    ],
-    'storage'   => [
-        /** The blueprint for storage */
-        'blueprint' => [
-            'app',
-            'databases',
-            'framework',
-            Disk::segment(['framework', 'sessions']),
-            Disk::segment(['framework', 'views']),
-            'logs',
         ],
     ],
 ];
