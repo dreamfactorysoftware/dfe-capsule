@@ -7,6 +7,7 @@ use DreamFactory\Enterprise\Database\Models\Instance;
 use DreamFactory\Enterprise\Instance\Capsule\Enums\CapsuleDefaults;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
+use Symfony\Component\Process\Process;
 
 class InstanceCapsule
 {
@@ -97,11 +98,6 @@ class InstanceCapsule
             return false;
         }
 
-        $_cwd = getcwd();
-        if (false === chdir($this->capsulePath)) {
-            throw new \LogicException('Capsule path "' . $this->capsulePath . '" is invalid or missing.');
-        }
-
         $_args = [];
 
         foreach ($arguments as $_key => $_value) {
@@ -114,10 +110,14 @@ class InstanceCapsule
             $_args[] = $_segment;
         }
 
-        exec('php artisan ' . $command . ' ' . $_args, $output, $_returned);
-        chdir($_cwd);
+        //  Build a command...
+        $_pid = new Process('php artisan ' . $command . ' ' . implode(' ', $_args), $this->capsulePath);
 
-        return $_returned;
+        $_pid->run(function ($type, $buffer) use ($output) {
+            $output = trim($buffer);
+        });
+
+        return $_pid->getExitCode();
     }
 
     /**
@@ -128,15 +128,15 @@ class InstanceCapsule
     public function down($keep = false)
     {
         //  A keeper or no id? No way!
-        if ($keep || empty($this->id)) {
+        if ($keep || !$this->capsulePath) {
             return;
         }
 
-        $_path = $this->capsulePath ?: Disk::path([$this->capsuleRootPath, $this->id], true);
-
-        if (!Disk::deleteTree($_path)) {
-            throw new \RuntimeException('Unable to remove capsule path "' . $_path . '".');
+        if (0 != `rm -rf $this->capsulePath`) {
+            throw new \RuntimeException('Unable to remove capsule path "' . $this->capsulePath . '".');
         }
+
+        $this->capsulePath = null;
     }
 
     /**
@@ -146,6 +146,7 @@ class InstanceCapsule
      */
     protected function encapsulate()
     {
+        $_storageRoot = config('provisioning.storage-root', storage_path());
         $_capsulePath = Disk::path([$this->capsuleRootPath, $this->id], true);
         $_targetPath = config('capsule.instance.install-path', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH);
         $_links = config('capsule.instance.symlinks', []);
@@ -154,7 +155,7 @@ class InstanceCapsule
         foreach ($_links as $_link) {
             $_linkTarget =
                 'storage' == $_link
-                    ? InstanceStorage::getStoragePath($this->instance)
+                    ? Disk::path([$_storageRoot, InstanceStorage::getStoragePath($this->instance)])
                     : Disk::path([$_targetPath, $_link,]);
 
             if (false === symlink($_linkTarget, Disk::path([$_capsulePath, $_link]))) {
@@ -166,14 +167,14 @@ class InstanceCapsule
         }
 
         //  Create an env
-        if (!file_exists($_targetPath . '.env')) {
+        if (!file_exists(Disk::path([$_targetPath, '.env']))) {
             $this->error('No .env file in instance path "' . $_targetPath . '"');
             $this->destroy();
 
             return false;
         }
 
-        $_ini = Ini::make(Disk::path([$_targetPath, '.env']));
+        $_ini = Ini::makeFromFile(Disk::path([$_targetPath, '.env']));
 
         //  Point to the database directly
         $_ini
