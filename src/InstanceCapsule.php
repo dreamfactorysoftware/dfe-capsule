@@ -4,7 +4,7 @@ use DreamFactory\Enterprise\Common\Traits\EntityLookup;
 use DreamFactory\Enterprise\Common\Traits\Lumberjack;
 use DreamFactory\Enterprise\Common\Utility\Ini;
 use DreamFactory\Enterprise\Database\Models\Instance;
-use DreamFactory\Enterprise\Instance\Enums\CapsuleDefaults;
+use DreamFactory\Enterprise\Instance\Capsule\Enums\CapsuleDefaults;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
 

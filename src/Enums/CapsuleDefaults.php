@@ -1,4 +1,4 @@
-<?php namespace DreamFactory\Enterprise\Instance\Enums;
+<?php namespace DreamFactory\Enterprise\Instance\Capsule\Enums;
 
 use DreamFactory\Library\Utility\Enums\FactoryEnum;
 
