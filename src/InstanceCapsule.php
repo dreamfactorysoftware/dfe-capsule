@@ -90,7 +90,14 @@ class InstanceCapsule
      */
     public function __construct($instance, $selfDestruct = true, $capsuleRootPath = null)
     {
-        $this->initialize($capsuleRootPath);
+        $this->selfDestruct = $selfDestruct;
+        $this->capsuleRootPath = $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_ROOT_PATH);
+
+        if (!is_dir($this->capsuleRootPath) && !Disk::ensurePath($this->capsuleRootPath)) {
+            throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' .
+                $this->capsuleRootPath .
+                '".');
+        }
 
         $this->instance = $this->findInstance($instance);
         $this->id = sha1($this->instance->cluster->cluster_id_text . '.' . $this->instance->instance_id_text);
@@ -198,7 +205,7 @@ class InstanceCapsule
 
             $_linkName = Disk::path([$_capsulePath, $_link]);
 
-            if ($_linkTarget != readlink($_linkName)) {
+            if (!file_exists($_linkName) || $_linkTarget != readlink($_linkName)) {
                 if (false === symlink($_linkTarget, $_linkName)) {
                     $this->error('Error symlinking target "' . $_linkTarget . '"');
                     $this->destroy();
@@ -242,20 +249,6 @@ class InstanceCapsule
     }
 
     /**
-     * @param string|null $capsuleRootPath The root path of all capsules
-     */
-    protected function initialize($capsuleRootPath = null)
-    {
-        $this->capsuleRootPath = $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_ROOT_PATH);
-
-        if (!is_dir($this->capsuleRootPath) && !Disk::ensurePath($this->capsuleRootPath)) {
-            throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' .
-                $this->capsuleRootPath .
-                '".');
-        }
-    }
-
-    /**
      * Destroy a capsule forcibly
      *
      * @return bool
@@ -271,5 +264,21 @@ class InstanceCapsule
         }
 
         return true;
+    }
+
+    /**
+     * @return string
+     */
+    public function getCapsulePath()
+    {
+        return $this->capsulePath;
+    }
+
+    /**
+     * @return Instance
+     */
+    public function getInstance()
+    {
+        return $this->instance;
     }
 }
