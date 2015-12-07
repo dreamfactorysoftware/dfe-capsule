@@ -72,6 +72,19 @@ class InstanceCapsule
     }
 
     /**
+     * Choose your destructor
+     */
+    public function __destruct()
+    {
+        //  Force the capsule down
+        try {
+            $this->down();
+        } catch (\Exception $_ex) {
+            //  Ignored...
+        }
+    }
+
+    /**
      * Boot up the capsule
      *
      * @return InstanceCapsule
