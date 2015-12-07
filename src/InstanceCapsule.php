@@ -37,6 +37,10 @@ class InstanceCapsule
      * @type Instance The current instance
      */
     protected $instance;
+    /**
+     * @type bool If true, encapsulated instances are destroyed when this class does
+     */
+    protected $selfDestruct = true;
 
     //******************************************************************************
     //* Methods
@@ -46,15 +50,35 @@ class InstanceCapsule
      * Instantiate and bring up an encapsulated instance
      *
      * @param string|Instance $instance
+     * @param bool            $selfDestruct If true, encapsulated instances are destroyed when this class does
      *
      * @return static
      */
-    public static function make($instance)
+    public static function make($instance, $selfDestruct = true)
     {
-        $_capsule = new static($instance);
+        $_capsule = new static($instance, $selfDestruct);
         $_capsule->up();
 
         return $_capsule;
+    }
+
+    /**
+     * Instantiate and bring up an encapsulated instance
+     *
+     * @param string|Instance $instance
+     */
+    public static function unmake($instance)
+    {
+        $_capsule = null;
+
+        try {
+            $_capsule = new static($instance, true);
+            $_capsule->up();
+        } catch (\Exception $_ex) {
+            //  Ignored
+        } finally {
+            $_capsule && $_capsule->destroy();
+        }
     }
 
     /**
@@ -62,8 +86,9 @@ class InstanceCapsule
      *
      * @param Instance|string $instance        The instance or instance-id to encapsulate
      * @param string|null     $capsuleRootPath The root path of all capsules
+     * @param bool            $selfDestruct    If true, encapsulated instances are destroyed when this class does
      */
-    public function __construct($instance, $capsuleRootPath = null)
+    public function __construct($instance, $selfDestruct = true, $capsuleRootPath = null)
     {
         $this->initialize($capsuleRootPath);
 
@@ -72,15 +97,15 @@ class InstanceCapsule
     }
 
     /**
-     * Choose your destructor
+     * Initiate self-destruct sequence
      */
     public function __destruct()
     {
-        //  Force the capsule down
         try {
-            $this->down();
+            if ($this->selfDestruct) {
+                $this->destroy();
+            }
         } catch (\Exception $_ex) {
-            //  Ignored...
         }
     }
 
@@ -171,11 +196,15 @@ class InstanceCapsule
                     ? Disk::path([$_storageRoot, InstanceStorage::getStoragePath($this->instance)])
                     : Disk::path([$_targetPath, $_link,]);
 
-            if (false === symlink($_linkTarget, Disk::path([$_capsulePath, $_link]))) {
-                $this->error('Error symlinking target "' . $_linkTarget . '"');
-                $this->destroy();
+            $_linkName = Disk::path([$_capsulePath, $_link]);
 
-                return false;
+            if ($_linkTarget != readlink($_linkName)) {
+                if (false === symlink($_linkTarget, $_linkName)) {
+                    $this->error('Error symlinking target "' . $_linkTarget . '"');
+                    $this->destroy();
+
+                    return false;
+                }
             }
         }
 
