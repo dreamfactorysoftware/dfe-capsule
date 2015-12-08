@@ -16,10 +16,12 @@ return [
         'install-path' => env('DFE_INSTANCE_INSTALL_PATH', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH),
         /** The "storage-path" link name */
         'storage-path' => 'storage',
+        /** The location of the bootstrap files, relative to app base path */
+        'bootstrap'    => 'resources/bootstrap',
         /** Directories/files which can be symlinked */
         'symlinks'     => [
             'app',
-            'bootstrap',
+            'artisan',
             'config',
             'database',
             'public',

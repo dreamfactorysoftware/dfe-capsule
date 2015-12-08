@@ -1,5 +1,14 @@
 <?php namespace DreamFactory\Enterprise\Instance\Capsule;
 
+use DreamFactory\Enterprise\Common\Traits\EntityLookup;
+use DreamFactory\Enterprise\Common\Traits\Lumberjack;
+use DreamFactory\Enterprise\Common\Utility\Ini;
+use DreamFactory\Enterprise\Database\Models\Instance;
+use DreamFactory\Enterprise\Instance\Capsule\Enums\CapsuleDefaults;
+use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
+use DreamFactory\Library\Utility\Disk;
+use DreamFactory\Library\Utility\Enums\GlobFlags;
+
 class InstanceCapsule
 {
     //******************************************************************************
@@ -90,9 +99,7 @@ class InstanceCapsule
         $this->capsuleRootPath = $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH);
 
         if (!is_dir($this->capsuleRootPath) && !Disk::ensurePath($this->capsuleRootPath)) {
-            throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' .
-                $this->capsuleRootPath .
-                '".');
+            throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' . $this->capsuleRootPath . '".');
         }
 
         $this->instance = $this->findInstance($instance);
@@ -131,11 +138,10 @@ class InstanceCapsule
      *
      * @param string $command   The artisan command to execute
      * @param array  $arguments Arguments to pass. Args = "arg-name" => "arg-value". Options = "--option-name" => "option-value"
-     * @param array  $output    An array of the output of the call
      *
      * @return int|bool The return value of the call or false on failure
      */
-    public function call($command, $arguments = [], &$output = [])
+    public function call($command, $arguments = [])
     {
         if (!$this->capsule) {
             return false;
@@ -192,62 +198,82 @@ class InstanceCapsule
      */
     protected function encapsulate()
     {
-        $_storageRoot = config('provisioning.storage-root', storage_path());
-        $_capsulePath = Disk::path([$this->capsuleRootPath, $this->id], true);
-        $_targetPath = config('capsule.instance.install-path', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH);
-        $_links = config('capsule.instance.symlinks', []);
+        try {
+            $_storageRoot = config('provisioning.storage-root', storage_path());
+            $_capsulePath = Disk::path([$this->capsuleRootPath, $this->id], true);
+            $_targetPath = config('capsule.instance.install-path', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH);
+            $_links = config('capsule.instance.symlinks', []);
 
-        //  Create symlinks
-        foreach ($_links as $_link) {
-            $_linkTarget =
-                'storage' == $_link
-                    ? Disk::path([$_storageRoot, InstanceStorage::getStoragePath($this->instance)])
-                    : Disk::path([$_targetPath, $_link,]);
+            //  Create symlinks
+            foreach ($_links as $_link) {
+                $_linkTarget =
+                    'storage' == $_link ? Disk::path([$_storageRoot, InstanceStorage::getStoragePath($this->instance)]) : Disk::path([$_targetPath, $_link,]);
 
-            $_linkName = Disk::path([$_capsulePath, $_link]);
+                $_linkName = Disk::path([$_capsulePath, $_link]);
 
-            if (!file_exists($_linkName) || $_linkTarget != readlink($_linkName)) {
-                if (false === symlink($_linkTarget, $_linkName)) {
-                    $this->error('Error symlinking target "' . $_linkTarget . '"');
-                    $this->destroy();
+                if (!file_exists($_linkName) || $_linkTarget != readlink($_linkName)) {
+                    if (false === symlink($_linkTarget, $_linkName)) {
+                        $this->error('Error symlinking target "' . $_linkTarget . '"');
+                        $this->destroy();
 
-                    return false;
+                        return false;
+                    }
                 }
             }
-        }
 
-        //  Create an env
-        if (!file_exists(Disk::path([$_targetPath, '.env']))) {
-            $this->error('No .env file in instance path "' . $_targetPath . '"');
+            //  Create the bootstrap directory
+            if (null !== ($_sourcePath = config('capsule.instance.bootstrap'))) {
+                $_bootstrapPath = Disk::path([$_capsulePath, 'bootstrap'], true);
+                $_files = Disk::glob($_bootstrapPath . DIRECTORY_SEPARATOR . '*',
+                    GlobFlags::GLOB_NODIR | GlobFlags::GLOB_NODOTS);
+
+                foreach ($_files as $_file) {
+                    if (false === copy($_sourcePath . DIRECTORY_SEPARATOR . $_file, $_bootstrapPath . DIRECTORY_SEPARATOR . $_file)) {
+                        $this->error('Failure copying bootstrap file "' . $_file . '" to "' . $_bootstrapPath . '"');
+                        $this->destroy();
+
+                        return false;
+                    }
+                }
+            }
+
+            //  Create an env
+            if (!file_exists(Disk::path([$_targetPath, '.env']))) {
+                $this->error('No .env file in instance path "' . $_targetPath . '"');
+                $this->destroy();
+
+                return false;
+            }
+
+            $_ini = Ini::makeFromFile(Disk::path([$_targetPath, '.env']));
+
+            //  Point to the database directly
+            $_ini->put('DB_DRIVER', 'mysql')
+                ->put('DB_HOST', $this->instance->db_host_text)
+                ->put('DB_DATABASE', $this->instance->db_name_text)
+                ->put('DB_USERNAME', $this->instance->db_user_text)
+                ->put('DB_PASSWORD', $this->instance->db_password_text)
+                ->put('DB_PORT', $this->instance->db_port_nbr);
+
+            $_targetEnv = Disk::path([$_capsulePath, '.env',]);
+
+            if (false === $_ini->setFile($_targetEnv)->save()) {
+                $this->error('Error saving capsule .env file "' . $_targetEnv . '".');
+                $this->destroy();
+
+                return false;
+            }
+
+            $this->capsulePath = $_capsulePath;
+            $this->capsule = new Capsule($this->instance->instance_id_text, $this->capsulePath);
+
+            return true;
+        } catch (\Exception $_ex) {
+            $this->error('Exception: ' . $_ex->getMessage());
             $this->destroy();
 
             return false;
         }
-
-        $_ini = Ini::makeFromFile(Disk::path([$_targetPath, '.env']));
-
-        //  Point to the database directly
-        $_ini
-            ->put('DB_DRIVER', 'mysql')
-            ->put('DB_HOST', $this->instance->db_host_text)
-            ->put('DB_DATABASE', $this->instance->db_name_text)
-            ->put('DB_USERNAME', $this->instance->db_user_text)
-            ->put('DB_PASSWORD', $this->instance->db_password_text)
-            ->put('DB_PORT', $this->instance->db_port_nbr);
-
-        $_targetEnv = Disk::path([$_capsulePath, '.env',]);
-
-        if (false === $_ini->setFile($_targetEnv)->save()) {
-            $this->error('Error saving capsule .env file "' . $_targetEnv . '".');
-            $this->destroy();
-
-            return false;
-        }
-
-        $this->capsulePath = $_capsulePath;
-        $this->capsule = new Capsule($this->instance->instance_id_text, $this->capsulePath);
-
-        return true;
     }
 
     /**
