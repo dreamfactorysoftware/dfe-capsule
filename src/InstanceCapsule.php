@@ -9,6 +9,12 @@ use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
 use DreamFactory\Library\Utility\Enums\GlobFlags;
 
+/**
+ * Instance Encapsulator
+ *
+ * Capsules are created in the root capsule path (default is /data/capsules) and siloed by
+ * cluster-id (/data/capsules/cluster-id-1 or /data/capsules/cluster-id-2 for instance).
+ */
 class InstanceCapsule
 {
     //******************************************************************************
@@ -42,9 +48,13 @@ class InstanceCapsule
      */
     protected $instance;
     /**
-     * @type bool If true, encapsulated instances are destroyed when this class does
+     * @type bool If true, encapsulated instances are destroyed when this class goes bye-bye
      */
     protected $selfDestruct = true;
+    /**
+     * @type bool If true, instance ids are hashed
+     */
+    protected $hashIds = false;
 
     //******************************************************************************
     //* Methods
@@ -84,7 +94,7 @@ class InstanceCapsule
     }
 
     /**
-     * Capsule constructor.
+     * Constructor
      *
      * @param Instance|string $instance        The instance or instance-id to encapsulate
      * @param string|null     $capsuleRootPath The root path of all capsules
@@ -93,14 +103,16 @@ class InstanceCapsule
     public function __construct($instance, $selfDestruct = true, $capsuleRootPath = null)
     {
         $this->selfDestruct = $selfDestruct;
-        $this->capsuleRootPath = $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH);
+        $this->capsuleRootPath =
+            Disk::path([$capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH), $this->instance->cluster->cluster_id_text,]);
 
         if (!is_dir($this->capsuleRootPath) && !Disk::ensurePath($this->capsuleRootPath)) {
             throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' . $this->capsuleRootPath . '".');
         }
 
         $this->instance = $this->findInstance($instance);
-        $this->id = sha1($this->instance->cluster->cluster_id_text . '.' . $this->instance->instance_id_text);
+        $this->id =
+            $this->hashIds ? sha1($this->instance->cluster->cluster_id_text . '.' . $this->instance->instance_id_text) : $this->instance->instance_id_text;
     }
 
     /**
@@ -196,7 +208,7 @@ class InstanceCapsule
     protected function encapsulate()
     {
         try {
-            $storage = config('provisioning.storage-root', storage_path());
+            $_storage = config('provisioning.storage-root', storage_path());
             $_capsulePath = $this->makeCapsulePath(true);
             $_targetPath = config('capsule.instance.install-path', CapsuleDefaults::DEFAULT_INSTANCE_INSTALL_PATH);
 
@@ -210,45 +222,16 @@ class InstanceCapsule
 
             //  Use symlinks?
             if (config('capsule.use-symlinks', false)) {
-                $this->createCapsuleLinks($_targetPath, $_capsulePath, $storage);
+                $_built = $this->createCapsuleLinks($_targetPath, $_capsulePath, $_storage);
             } else {
-                //  Copy files...
-                $_command = 'cp -r ' . $_targetPath . DIRECTORY_SEPARATOR . '* ' . $_capsulePath . DIRECTORY_SEPARATOR;
-                exec($_command, $_output, $_return);
+                $_built = $this->createCapsuleCopy($_targetPath, $_capsulePath, $_storage);
+            }
 
-                if (0 !== $_return) {
-                    $this->error('Error (' . $_return . ') while copying source "' . $_targetPath . '" to "' . $_capsulePath . '".');
-                    $this->error(implode(PHP_EOL, $_output));
+            //  No worky? Bail...
+            if (!$_built) {
+                $this->destroy();
 
-                    $this->destroy();
-
-                    return false;
-                }
-
-                //  Symlink REAL storage directory for this instance
-                if (!is_link($_linkName = Disk::path([$_capsulePath, 'storage']))) {
-                    //  Remove and link the storage directory...
-                    $_command = 'rm -rf ' . ($_destinationStorage = Disk::path([$_capsulePath, 'storage',]));
-                    exec($_command, $_output, $_return);
-
-                    if (0 !== $_return) {
-                        $this->error('Error (' . $_return . ') while removing source storage directory "' . $_destinationStorage . '".');
-                        $this->error(implode(PHP_EOL, $_output));
-
-                        $this->destroy();
-
-                        return false;
-                    }
-
-                    $_linkTarget = Disk::path([$storage, InstanceStorage::getStoragePath($this->instance)]);
-
-                    if (false === symlink($_linkTarget, $_linkName)) {
-                        $this->error('Error symlinking target storage directory "' . $_linkTarget . '"');
-                        $this->destroy();
-
-                        return false;
-                    }
-                }
+                return false;
             }
 
             //  Create an env
@@ -283,6 +266,53 @@ class InstanceCapsule
     }
 
     /**
+     * Creates a copy of an instance
+     *
+     * @param string $source
+     * @param string $destination
+     * @param string $storage
+     *
+     * @return bool
+     */
+    protected function createCapsuleCopy($source, $destination, $storage)
+    {
+        //  Copy files...
+        $_command = 'cp -r ' . $source . DIRECTORY_SEPARATOR . '* ' . $destination . DIRECTORY_SEPARATOR;
+        exec($_command, $_output, $_return);
+
+        if (0 !== $_return) {
+            $this->error('Error (' . $_return . ') while copying source "' . $source . '" to "' . $destination . '".');
+            $this->error(implode(PHP_EOL, $_output));
+
+            return false;
+        }
+
+        //  Symlink REAL storage directory for this instance
+        if (!is_link($_linkName = Disk::path([$destination, 'storage']))) {
+            //  Remove and link the storage directory...
+            $_command = 'rm -rf ' . ($_destinationStorage = Disk::path([$destination, 'storage',]));
+            exec($_command, $_output, $_return);
+
+            if (0 !== $_return) {
+                $this->error('Error (' . $_return . ') while removing source storage directory "' . $_destinationStorage . '".');
+                $this->error(implode(PHP_EOL, $_output));
+
+                return false;
+            }
+
+            $_linkTarget = Disk::path([$storage, InstanceStorage::getStoragePath($this->instance)]);
+
+            if (false === symlink($_linkTarget, $_linkName)) {
+                $this->error('Error symlinking target storage directory "' . $_linkTarget . '"');
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Create capsule symlinks
      *
      * @param string $source      The instance source
@@ -309,7 +339,6 @@ class InstanceCapsule
             if (!file_exists($_linkName) || $_linkTarget != readlink($_linkName)) {
                 if (false === symlink($_linkTarget, $_linkName)) {
                     $this->error('Error symlinking target "' . $_linkTarget . '"');
-                    $this->destroy();
 
                     return false;
                 }
@@ -328,7 +357,6 @@ class InstanceCapsule
         foreach ($_files as $_file) {
             if (false === copy($_sourcePath . DIRECTORY_SEPARATOR . $_file, $_bootstrapPath . DIRECTORY_SEPARATOR . $_file)) {
                 $this->error('Failure copying bootstrap file "' . $_file . '" to "' . $_bootstrapPath . '"');
-                $this->destroy();
 
                 return false;
             }
