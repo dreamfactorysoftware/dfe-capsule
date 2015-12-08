@@ -221,20 +221,21 @@ class InstanceCapsule
                 }
             }
 
-            //  Create the bootstrap directory
-            if (null !== ($_sourcePath = config('capsule.instance.bootstrap'))) {
-                $_sourcePath = app_path($_sourcePath);
-                $_bootstrapPath = Disk::path([$_capsulePath, 'bootstrap'], true);
-                $_files = Disk::glob($_bootstrapPath . DIRECTORY_SEPARATOR . '*',
-                    GlobFlags::GLOB_NODIR | GlobFlags::GLOB_NODOTS);
+            //  Create the bootstrap[/cache] directory
+            $_sourcePath = Disk::path([$_targetPath, 'bootstrap']);
+            $_bootstrapPath = Disk::path([$_capsulePath, 'bootstrap'], true);
 
-                foreach ($_files as $_file) {
-                    if (false === copy($_sourcePath . DIRECTORY_SEPARATOR . $_file, $_bootstrapPath . DIRECTORY_SEPARATOR . $_file)) {
-                        $this->error('Failure copying bootstrap file "' . $_file . '" to "' . $_bootstrapPath . '"');
-                        $this->destroy();
+            //  Ensure the cache directory is there as well...
+            Disk::path([$_bootstrapPath, 'cache'], true);
 
-                        return false;
-                    }
+            $_files = Disk::glob($_sourcePath . DIRECTORY_SEPARATOR . '*', GlobFlags::GLOB_NODIR | GlobFlags::GLOB_NODOTS);
+
+            foreach ($_files as $_file) {
+                if (false === copy($_sourcePath . DIRECTORY_SEPARATOR . $_file, $_bootstrapPath . DIRECTORY_SEPARATOR . $_file)) {
+                    $this->error('Failure copying bootstrap file "' . $_file . '" to "' . $_bootstrapPath . '"');
+                    $this->destroy();
+
+                    return false;
                 }
             }
 

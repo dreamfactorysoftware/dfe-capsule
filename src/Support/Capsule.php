@@ -1,7 +1,6 @@
 <?php namespace DreamFactory\Enterprise\Instance\Capsule;
 
 use DreamFactory\Enterprise\Instance\Capsule\Contracts\ProvidesCapsulePattern;
-use DreamFactory\Enterprise\Instance\Capsule\Patterns\DreamFactory;
 use DreamFactory\Library\Utility\Disk;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Kernel;
@@ -65,12 +64,35 @@ class Capsule
     /**
      * @param string                 $basePath The application base path
      * @param ProvidesCapsulePattern $pattern  The capsule pattern
+     *
+     * @return \Illuminate\Foundation\Application
      */
     protected function bootstrap($basePath, $pattern = null)
     {
-        //  No pattern? Default to DF2
-        !$pattern && $pattern = DreamFactory::getCapsulePattern();
+        if ($pattern) {
+            return $this->bootstrapPattern($basePath, $pattern);
+        }
 
+        //  Get the app's autoloader
+        /** @noinspection PhpIncludeInspection */
+        require(Disk::path([$basePath, 'bootstrap', 'autoload.php',]));
+
+        /** @noinspection PhpIncludeInspection */
+        $_app = require(Disk::path([$basePath, 'bootstrap', 'app.php',]));
+
+        $this->basePath = $basePath;
+
+        return $this->app = $_app;
+    }
+
+    /**
+     * @param string                 $basePath The application base path
+     * @param ProvidesCapsulePattern $pattern  The capsule pattern
+     *
+     * @return \Illuminate\Foundation\Application
+     */
+    protected function bootstrapPattern($basePath, $pattern)
+    {
         //  Get the app's autoloader
         /** @noinspection PhpIncludeInspection */
         require(Disk::path([$basePath, 'vendor', 'autoload.php',]));
@@ -94,7 +116,8 @@ class Capsule
         });
 
         $this->basePath = $basePath;
-        $this->app = $_app;
+
+        return $this->app = $_app;
     }
 
     /**
