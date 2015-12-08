@@ -143,11 +143,11 @@ class InstanceCapsule
      */
     public function call($command, $arguments = [])
     {
-        if (!$this->capsule) {
-            return false;
+        if (!$this->capsulePath) {
+            throw new \LogicException('No capsule loaded. Cannot run command "' . $command . '".');
         }
 
-        return $this->capsule->console($command, $arguments);
+        return $this->getCapsule()->console($command, $arguments);
 //
 //        $_args = [];
 //
@@ -192,7 +192,7 @@ class InstanceCapsule
     }
 
     /**
-     * Create the necessary links to run the instance
+     * Create the necessary links to run the instance but does not instantiate!
      *
      * @return bool
      */
@@ -267,7 +267,6 @@ class InstanceCapsule
             }
 
             $this->capsulePath = $_capsulePath;
-            $this->capsule = new Capsule($this->instance->instance_id_text, $this->capsulePath);
 
             return true;
         } catch (\Exception $_ex) {
@@ -305,10 +304,18 @@ class InstanceCapsule
     }
 
     /**
-     * @return Capsule
+     * @return Capsule|null
      */
     public function getCapsule()
     {
+        if (!$this->capsulePath) {
+            return null;
+        }
+
+        if (!$this->capsule) {
+            $this->capsule = new Capsule($this->instance->instance_id_text, $this->capsulePath);
+        }
+
         return $this->capsule;
     }
 
