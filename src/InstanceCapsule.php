@@ -223,6 +223,7 @@ class InstanceCapsule
 
             //  Create the bootstrap directory
             if (null !== ($_sourcePath = config('capsule.instance.bootstrap'))) {
+                $_sourcePath = app_path($_sourcePath);
                 $_bootstrapPath = Disk::path([$_capsulePath, 'bootstrap'], true);
                 $_files = Disk::glob($_bootstrapPath . DIRECTORY_SEPARATOR . '*',
                     GlobFlags::GLOB_NODIR | GlobFlags::GLOB_NODOTS);

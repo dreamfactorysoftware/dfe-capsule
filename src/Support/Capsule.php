@@ -77,23 +77,21 @@ class Capsule
 
         //  Create the application
         $_app = new Application($basePath);
+        $_app->useEnvironmentPath($basePath);
 
         foreach ($pattern as $_abstract => $_concrete) {
             $_app->singleton($_abstract, $_concrete);
         }
 
         //  Set up logging
-        $_app->configureMonologUsing(
-            function (Logger $monolog) {
-                $_logFile =
-                    Disk::path([env('DFE_CAPSULE_LOG_PATH', storage_path('logs')), $this->instanceId . '.log',]);
+        $_app->configureMonologUsing(function (Logger $monolog) {
+            $_logFile = Disk::path([env('DFE_CAPSULE_LOG_PATH', storage_path('logs')), $this->instanceId . '.log',]);
 
-                $_handler = new StreamHandler($_logFile);
-                $_handler->setFormatter(new LineFormatter(null, null, true, true));
+            $_handler = new StreamHandler($_logFile);
+            $_handler->setFormatter(new LineFormatter(null, null, true, true));
 
-                $monolog->pushHandler($_handler);
-            }
-        );
+            $monolog->pushHandler($_handler);
+        });
 
         $this->basePath = $basePath;
         $this->app = $_app;
