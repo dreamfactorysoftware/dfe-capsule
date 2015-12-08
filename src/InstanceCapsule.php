@@ -1,14 +1,5 @@
 <?php namespace DreamFactory\Enterprise\Instance\Capsule;
 
-use DreamFactory\Enterprise\Common\Traits\EntityLookup;
-use DreamFactory\Enterprise\Common\Traits\Lumberjack;
-use DreamFactory\Enterprise\Common\Utility\Ini;
-use DreamFactory\Enterprise\Database\Models\Instance;
-use DreamFactory\Enterprise\Instance\Capsule\Enums\CapsuleDefaults;
-use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
-use DreamFactory\Library\Utility\Disk;
-use Symfony\Component\Process\Process;
-
 class InstanceCapsule
 {
     //******************************************************************************
@@ -21,6 +12,10 @@ class InstanceCapsule
     //* Members
     //******************************************************************************
 
+    /**
+     * @type Capsule The instance capsule
+     */
+    protected $capsule;
     /**
      * @type string The path to this capsule (i.e. /data/capsules/hashed-instance-name)
      */
@@ -76,7 +71,8 @@ class InstanceCapsule
             $_capsule->up();
         } catch (\Exception $_ex) {
             //  Ignored
-        } finally {
+        }
+        finally {
             $_capsule && $_capsule->destroy();
         }
     }
@@ -91,7 +87,7 @@ class InstanceCapsule
     public function __construct($instance, $selfDestruct = true, $capsuleRootPath = null)
     {
         $this->selfDestruct = $selfDestruct;
-        $this->capsuleRootPath = $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_ROOT_PATH);
+        $this->capsuleRootPath = $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH);
 
         if (!is_dir($this->capsuleRootPath) && !Disk::ensurePath($this->capsuleRootPath)) {
             throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' .
@@ -123,7 +119,9 @@ class InstanceCapsule
      */
     public function up()
     {
-        $this->encapsulate();
+        if (!$this->encapsulate()) {
+            throw new \RuntimeException('The instance failed to boot.');
+        }
 
         return $this;
     }
@@ -139,30 +137,32 @@ class InstanceCapsule
      */
     public function call($command, $arguments = [], &$output = [])
     {
-        if (!$this->capsulePath) {
+        if (!$this->capsule) {
             return false;
         }
 
-        $_args = [];
-
-        foreach ($arguments as $_key => $_value) {
-            $_segment = $_key;
-
-            if (!empty($_value)) {
-                $_segment .= (('--' == substr($_key, 0, 2)) ? '=' : ' ') . escapeshellarg($_value);
-            }
-
-            $_args[] = $_segment;
-        }
-
-        //  Build a command...
-        $_pid = new Process('php artisan ' . $command . ' ' . implode(' ', $_args), $this->capsulePath);
-
-        $_pid->run(function ($type, $buffer) use ($output) {
-            $output = trim($buffer);
-        });
-
-        return $_pid->getExitCode();
+        return $this->capsule->console($command, $arguments);
+//
+//        $_args = [];
+//
+//        foreach ($arguments as $_key => $_value) {
+//            $_segment = $_key;
+//
+//            if (!empty($_value)) {
+//                $_segment .= (('--' == substr($_key, 0, 2)) ? '=' : ' ') . escapeshellarg($_value);
+//            }
+//
+//            $_args[] = $_segment;
+//        }
+//
+//        //  Build a command...
+//        $_pid = new Process('php artisan ' . $command . ' ' . implode(' ', $_args), $this->capsulePath);
+//
+//        $_pid->run(function ($type, $buffer) use ($output) {
+//            $output = trim($buffer);
+//        });
+//
+//        return $_pid->getExitCode();
     }
 
     /**
@@ -181,6 +181,7 @@ class InstanceCapsule
             throw new \RuntimeException('Unable to remove capsule path "' . $this->capsulePath . '".');
         }
 
+        $this->capsule = null;
         $this->capsulePath = null;
     }
 
@@ -244,6 +245,7 @@ class InstanceCapsule
         }
 
         $this->capsulePath = $_capsulePath;
+        $this->capsule = new Capsule($this->instance->instance_id_text, $this->capsulePath);
 
         return true;
     }
@@ -272,6 +274,14 @@ class InstanceCapsule
     public function getCapsulePath()
     {
         return $this->capsulePath;
+    }
+
+    /**
+     * @return Capsule
+     */
+    public function getCapsule()
+    {
+        return $this->capsule;
     }
 
     /**
