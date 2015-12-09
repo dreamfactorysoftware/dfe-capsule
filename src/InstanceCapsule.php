@@ -102,6 +102,8 @@ class InstanceCapsule
      */
     public function __construct($instance, $selfDestruct = true, $capsuleRootPath = null)
     {
+        $this->instance = $this->findInstance($instance);
+
         $this->selfDestruct = $selfDestruct;
         $this->capsuleRootPath =
             Disk::path([$capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH), $this->instance->cluster->cluster_id_text,]);
@@ -110,7 +112,6 @@ class InstanceCapsule
             throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' . $this->capsuleRootPath . '".');
         }
 
-        $this->instance = $this->findInstance($instance);
         $this->id =
             $this->hashIds ? sha1($this->instance->cluster->cluster_id_text . '.' . $this->instance->instance_id_text) : $this->instance->instance_id_text;
     }
