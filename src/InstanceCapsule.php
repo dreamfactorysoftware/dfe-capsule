@@ -5,9 +5,11 @@ use DreamFactory\Enterprise\Common\Traits\Lumberjack;
 use DreamFactory\Enterprise\Common\Utility\Ini;
 use DreamFactory\Enterprise\Database\Models\Instance;
 use DreamFactory\Enterprise\Instance\Capsule\Enums\CapsuleDefaults;
+use DreamFactory\Enterprise\Instance\Capsule\Support\Capsule;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
 use DreamFactory\Library\Utility\Enums\GlobFlags;
+use Symfony\Component\Process\Process;
 
 /**
  * Instance Encapsulator
@@ -105,8 +107,10 @@ class InstanceCapsule
         $this->instance = $this->findInstance($instance);
 
         $this->selfDestruct = $selfDestruct;
-        $this->capsuleRootPath =
-            Disk::path([$capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH), $this->instance->cluster->cluster_id_text,]);
+        $this->capsuleRootPath = Disk::path([
+            $capsuleRootPath ?: config('capsule.root-path', CapsuleDefaults::DEFAULT_PATH),
+            $this->instance->cluster->cluster_id_text,
+        ]);
 
         if (!is_dir($this->capsuleRootPath) && !Disk::ensurePath($this->capsuleRootPath)) {
             throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' . $this->capsuleRootPath . '".');
@@ -146,39 +150,39 @@ class InstanceCapsule
     /**
      * Call an artisan command in the encapsulated instance
      *
-     * @param string $command   The artisan command to execute
-     * @param array  $arguments Arguments to pass. Args = "arg-name" => "arg-value". Options = "--option-name" => "option-value"
+     * @param string      $command   The artisan command to execute
+     * @param array       $arguments Arguments to pass. Args = "arg-name" => "arg-value". Options = "--option-name" => "option-value".
+     *                               Flags should pass "true" as value (['--seed'=>true])
+     * @param string|null $output    The output of the command
      *
-     * @return int|bool The return value of the call or false on failure
+     * @return bool|int The return value of the call or false on failure
      */
-    public function call($command, $arguments = [])
+    public function call($command, $arguments = [], &$output = null)
     {
         if (!$this->capsulePath) {
             throw new \LogicException('No capsule loaded. Cannot run command "' . $command . '".');
         }
 
-        return $this->getCapsule()->console($command, $arguments);
-//
-//        $_args = [];
-//
-//        foreach ($arguments as $_key => $_value) {
-//            $_segment = $_key;
-//
-//            if (!empty($_value)) {
-//                $_segment .= (('--' == substr($_key, 0, 2)) ? '=' : ' ') . escapeshellarg($_value);
-//            }
-//
-//            $_args[] = $_segment;
-//        }
-//
-//        //  Build a command...
-//        $_pid = new Process('php artisan ' . $command . ' ' . implode(' ', $_args), $this->capsulePath);
-//
-//        $_pid->run(function ($type, $buffer) use ($output) {
-//            $output = trim($buffer);
-//        });
-//
-//        return $_pid->getExitCode();
+        $_args = [];
+
+        foreach ($arguments as $_key => $_value) {
+            $_segment = $_key;
+
+            if (true !== $_value && !empty($_value)) {
+                $_segment .= (('--' == substr($_key, 0, 2)) ? '=' : ' ') . escapeshellarg($_value);
+            }
+
+            $_args[] = $_segment;
+        }
+
+        //  Build a command...
+        $_pid = new Process('php artisan ' . $command . ' ' . implode(' ', $_args), $this->capsulePath);
+
+        $_pid->run(function($type, $buffer) use ($output) {
+            $output = trim($buffer);
+        });
+
+        return $_pid->getExitCode();
     }
 
     /**
@@ -239,12 +243,9 @@ class InstanceCapsule
             $_ini = Ini::makeFromFile(Disk::path([$_targetPath, '.env']));
 
             //  Point to the database directly
-            $_ini->put('DB_DRIVER', 'mysql')
-                ->put('DB_HOST', $this->instance->db_host_text)
-                ->put('DB_DATABASE', $this->instance->db_name_text)
-                ->put('DB_USERNAME', $this->instance->db_user_text)
-                ->put('DB_PASSWORD', $this->instance->db_password_text)
-                ->put('DB_PORT', $this->instance->db_port_nbr);
+            $_ini->put('DB_DRIVER', 'mysql')->put('DB_HOST', $this->instance->db_host_text)->put('DB_DATABASE',
+                $this->instance->db_name_text)->put('DB_USERNAME', $this->instance->db_user_text)->put('DB_PASSWORD',
+                $this->instance->db_password_text)->put('DB_PORT', $this->instance->db_port_nbr);
 
             $_targetEnv = Disk::path([$_capsulePath, '.env',]);
 
