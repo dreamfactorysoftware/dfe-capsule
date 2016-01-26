@@ -5,6 +5,7 @@ use DreamFactory\Enterprise\Common\Traits\Lumberjack;
 use DreamFactory\Enterprise\Common\Utility\Ini;
 use DreamFactory\Enterprise\Database\Models\Instance;
 use DreamFactory\Enterprise\Instance\Capsule\Enums\CapsuleDefaults;
+use DreamFactory\Enterprise\Instance\Capsule\Support\Capsule;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
 use DreamFactory\Library\Utility\Enums\GlobFlags;
@@ -88,7 +89,8 @@ class InstanceCapsule
             $_capsule = new static($instance, true);
         } catch (\Exception $_ex) {
             //  Ignored
-        } finally {
+        }
+        finally {
             isset($_capsule) && $_capsule->destroy();
         }
     }
@@ -114,7 +116,8 @@ class InstanceCapsule
             throw new \RuntimeException('Cannot create, or write to, capsule.root-path "' . $this->capsuleRootPath . '".');
         }
 
-        $this->id = $this->hashIds ? sha1($this->instance->cluster->cluster_id_text . '.' . $this->instance->instance_id_text) : $this->instance->instance_id_text;
+        $this->id =
+            $this->hashIds ? sha1($this->instance->cluster->cluster_id_text . '.' . $this->instance->instance_id_text) : $this->instance->instance_id_text;
     }
 
     /**
@@ -175,7 +178,7 @@ class InstanceCapsule
         //  Build a command...
         $_pid = new Process('php artisan ' . $command . ' ' . implode(' ', $_args), $this->capsulePath);
 
-        $_pid->run(function ($type, $buffer) use ($output) {
+        $_pid->run(function($type, $buffer) use ($output) {
             $output = trim($buffer);
         });
 
@@ -326,10 +329,12 @@ class InstanceCapsule
 
         //  Create symlinks
         foreach ($_links as $_link) {
-            $_linkTarget = 'storage' == $_link ? Disk::path([$storage, InstanceStorage::getStoragePath($this->instance)]) : Disk::path([
-                $source,
-                $_link,
-            ]);
+            $_linkTarget = 'storage' == $_link
+                ? Disk::path([$storage, InstanceStorage::getStoragePath($this->instance)])
+                : Disk::path([
+                    $source,
+                    $_link,
+                ]);
 
             $_linkName = Disk::path([$destination, $_link]);
 

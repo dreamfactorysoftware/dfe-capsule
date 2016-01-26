@@ -1,4 +1,4 @@
-<?php namespace DreamFactory\Enterprise\Instance\Capsule;
+<?php namespace DreamFactory\Enterprise\Instance\Capsule\Support;
 
 use DreamFactory\Enterprise\Instance\Capsule\Contracts\ProvidesCapsulePattern;
 use DreamFactory\Library\Utility\Disk;
@@ -106,7 +106,7 @@ class Capsule
         }
 
         //  Set up logging
-        $_app->configureMonologUsing(function (Logger $monolog) {
+        $_app->configureMonologUsing(function(Logger $monolog) {
             $_logFile = Disk::path([env('DFE_CAPSULE_LOG_PATH', storage_path('logs')), $this->instanceId . '.log',]);
 
             $_handler = new StreamHandler($_logFile);

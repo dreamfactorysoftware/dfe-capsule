@@ -1,62 +1,62 @@
 {
-	"name":              "dreamfactory/dfe-capsule",
-	"description":       "DreamFactory Enterprise(tm) Encapsulation Library",
-	"homepage":          "https://www.dreamfactory.com/",
-	"keywords":          [
-		"dreamfactory",
-		"df",
-		"dfe",
-		"client",
-		"api",
-		"instance",
-		"capsule"
-	],
-	"license":           [
-		"proprietary"
-	],
-	"type":              "library",
-	"authors":           [
-		{
-			"name":  "Jerry Ablan",
-			"email": "jerryablan@dreamfactory.com"
-		}
-	],
-	"repositories":      [
-		{
-			"type": "vcs",
-			"url":  "https://github.com/dreamfactorysoftware/dfe-database.git"
-		},
-		{
-			"type": "vcs",
-			"url":  "https://github.com/dreamfactorysoftware/dfe-common.git"
-		},
-		{
-			"type": "vcs",
-			"url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
-		}
-	],
-	"minimum-stability": "dev",
-	"require":           {
-		"dreamfactory/dfe-common":   "1.0.*",
-		"dreamfactory/dfe-database": "1.0.*"
-	},
-	"require-dev":       {
-		"laravel/framework": "~5.1.0",
-		"guzzlehttp/guzzle": "~4.0",
-		"phpspec/phpspec":   "~2.1",
-		"phpunit/phpunit":   "~4.0"
-	},
-	"autoload":          {
-		"psr-4": {
-			"DreamFactory\\Enterprise\\Instance\\Capsule\\": "src/"
-		}
-	},
-	"config":            {
-		"preferred-install": "dist"
-	},
-	"extra":             {
-		"branch-alias": {
-			"dev-develop": "1.0.x-dev"
-		}
-	}
+  "name":              "dreamfactory/dfe-capsule",
+  "description":       "DreamFactory Enterprise(tm) Encapsulation Library",
+  "homepage":          "https://www.dreamfactory.com/",
+  "keywords":          [
+    "dreamfactory",
+    "df",
+    "dfe",
+    "client",
+    "api",
+    "instance",
+    "capsule"
+  ],
+  "license":           [
+    "proprietary"
+  ],
+  "type":              "library",
+  "authors":           [
+    {
+      "name":  "Jerry Ablan",
+      "email": "jerryablan@dreamfactory.com"
+    }
+  ],
+  "repositories":      [
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-database.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-common.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require":           {
+    "dreamfactory/dfe-common":   "1.0.*",
+    "dreamfactory/dfe-database": "1.0.*"
+  },
+  "require-dev":       {
+    "laravel/framework": "~5.1.0",
+    "guzzlehttp/guzzle": "~4.0",
+    "phpspec/phpspec":   "~2.1",
+    "phpunit/phpunit":   "~4.0"
+  },
+  "autoload":          {
+    "psr-4": {
+      "DreamFactory\\Enterprise\\Instance\\Capsule\\": "src/"
+    }
+  },
+  "config":            {
+    "preferred-install": "dist"
+  },
+  "extra":             {
+    "branch-alias": {
+      "dev-develop": "1.0.x-dev"
+    }
+  }
 }
