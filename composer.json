@@ -35,11 +35,10 @@
             "url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
         }
     ],
-    "prefer-dist":       false,
     "minimum-stability": "dev",
     "require":           {
-        "dreamfactory/dfe-common":   "dev-feature/l52-upgrade as dev-master",
-        "dreamfactory/dfe-database": "dev-feature/l52-upgrade as dev-master"
+        "dreamfactory/dfe-common":   "1.1.*",
+        "dreamfactory/dfe-database": "1,1,*"
     },
     "require-dev":       {
         "laravel/framework": "~5.2.0",
